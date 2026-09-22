@@ -314,11 +314,18 @@
     dragState = { tile, pointerId: e.pointerId }
     tile.classList.add('dragging')
     dragGhost = createDragGhost(tile, e)
-    const handle = e.currentTarget
-    handle.setPointerCapture(e.pointerId)
-    handle.addEventListener('pointermove', onDragMove)
-    handle.addEventListener('pointerup', onDragEnd)
-    handle.addEventListener('pointercancel', onDragEnd)
+    // Capture on #grid, not on the tile being dragged: onDragMove
+    // reparents the tile within #grid on every reorder, and WebKit
+    // (iOS/iPadOS Safari) silently drops pointer capture when its holder
+    // is moved in the DOM mid-gesture — no more pointermove ever arrives
+    // after that, which is why dragging used to freeze the instant the
+    // first reorder happened. #grid itself is never repositioned, only
+    // its children are, so it's a stable capture target for the whole
+    // gesture.
+    grid.setPointerCapture(e.pointerId)
+    grid.addEventListener('pointermove', onDragMove)
+    grid.addEventListener('pointerup', onDragEnd)
+    grid.addEventListener('pointercancel', onDragEnd)
   }
 
   function onDragMove (e) {
@@ -344,11 +351,10 @@
       dragGhost.remove()
       dragGhost = null
     }
-    const handle = e.currentTarget
-    handle.removeEventListener('pointermove', onDragMove)
-    handle.removeEventListener('pointerup', onDragEnd)
-    handle.removeEventListener('pointercancel', onDragEnd)
-    try { handle.releasePointerCapture(e.pointerId) } catch (err) { /* already released */ }
+    grid.removeEventListener('pointermove', onDragMove)
+    grid.removeEventListener('pointerup', onDragEnd)
+    grid.removeEventListener('pointercancel', onDragEnd)
+    try { grid.releasePointerCapture(e.pointerId) } catch (err) { /* already released */ }
     dragState = null
     // #grid only ever holds visible tiles now (see render()), so rebuild
     // the full order by appending hidden apps back in whatever relative
