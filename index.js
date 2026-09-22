@@ -3,6 +3,7 @@ const os = require('os')
 const express = require('express')
 const { ConfigStore } = require('./lib/config-store')
 const { scanWebappMetadata } = require('./lib/webapp-metadata')
+const { computeDayOrNight } = require('./lib/theme-source')
 const { requireAuth } = require('./lib/auth')
 
 // SignalK's own config-dir default, per the Plugin API docs ("$SIGNALK_NODE_
@@ -104,6 +105,15 @@ module.exports = function (app) {
       const saved = await store.save(req.body || {})
       res.json(saved)
     }))
+
+    // Unconditional — always attempts environment.sun/environment.mode
+    // regardless of the saved themeSource. Whether to use the result is a
+    // client concern (see docs/auto-day-night-source.md §5); this route
+    // stays a pure read of live SignalK state.
+    readonly.get('/sun-phase', (req, res) => {
+      res.set('Cache-Control', 'no-store')
+      res.json({ phase: computeDayOrNight(app) })
+    })
   }
 
   return plugin

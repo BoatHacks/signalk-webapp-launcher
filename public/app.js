@@ -5,6 +5,7 @@
   const grid = document.getElementById('grid')
   const emptyState = document.getElementById('empty-state')
   const editToggle = document.getElementById('edit-toggle')
+  const showDescriptionsControl = document.getElementById('show-descriptions-control')
   const showDescriptions = document.getElementById('show-descriptions')
   const iconSizeControl = document.getElementById('icon-size-control')
   const iconSizeSlider = document.getElementById('icon-size-slider')
@@ -13,8 +14,13 @@
   const dayBgColor = document.getElementById('day-bg-color')
   const nightBgControl = document.getElementById('night-bg-control')
   const nightBgColor = document.getElementById('night-bg-color')
+  const themeSourceControl = document.getElementById('theme-source-control')
+  const themeSourceSelect = document.getElementById('theme-source-select')
+  const themeSourceStatus = document.getElementById('theme-source-status')
   const header = document.querySelector('header')
   const loginRedirect = document.getElementById('login-redirect')
+
+  const SUN_POLL_INTERVAL_MS = 60000
 
   let webapps = []
   let config = {
@@ -24,13 +30,15 @@
     hideDescriptions: true,
     iconSize: 56,
     dayBackground: '#f4f5f7',
-    nightBackground: '#14161a'
+    nightBackground: '#14161a',
+    themeSource: 'system'
   }
   let editMode = false
-  let dragged = null
   let iconSizeSaveTimer = null
   let dayBgSaveTimer = null
   let nightBgSaveTimer = null
+  let sunPhase = null
+  let sunPollTimer = null
 
   // Thrown on a 401. Reads are registered server-side via router.access
   // ('readonly'), so with allow_readonly on they work with no session at
@@ -97,7 +105,9 @@
       iconSizeNumber.value = config.iconSize
       dayBgColor.value = config.dayBackground
       nightBgColor.value = config.nightBackground
+      themeSourceSelect.value = config.themeSource
       applyBackgroundColor()
+      if (config.themeSource === 'signalk') startSunPolling()
       render()
     } catch (err) {
       if (err instanceof AuthRequiredError) return redirectToLogin()
@@ -172,22 +182,57 @@
     document.documentElement.style.setProperty('--icon-size', `${px}px`)
   }
 
-  // "Day"/"night" is read off the system's own light/dark setting rather
-  // than any SignalK sun/time data — matches the dark-mode split style.css
-  // already uses for every other color, just made user-configurable for
-  // this one instead of hardcoded. Setting the inline style always wins
-  // over the stylesheet's @media block, so no specificity fight like the
-  // one the [hidden] toolbar controls had.
+  // "Day"/"night" defaults to the system's own light/dark setting, matching
+  // the dark-mode split style.css already uses for every other color, just
+  // made user-configurable for this one instead of hardcoded. Setting the
+  // inline style always wins over the stylesheet's @media block, so no
+  // specificity fight like the one the [hidden] toolbar controls had.
+  //
+  // themeSource === 'signalk' switches the *source* of day-vs-night to the
+  // boat's own environment.sun/environment.mode (see docs/
+  // auto-day-night-source.md) instead of the device's OS setting — useful
+  // on kiosk/helm displays that have no OS dark-mode toggle at all, or one
+  // that doesn't track actual time of day. The two saved colors themselves
+  // are unaffected either way; only which one is currently shown changes.
   const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
   function applyBackgroundColor () {
-    document.documentElement.style.setProperty(
-      '--bg',
-      darkModeQuery.matches ? config.nightBackground : config.dayBackground
-    )
+    let isNight
+    if (config.themeSource === 'signalk') {
+      if (sunPhase === null) return // no data yet — leave the current color alone
+      isNight = sunPhase === 'night'
+    } else {
+      isNight = darkModeQuery.matches
+    }
+    document.documentElement.style.setProperty('--bg', isNight ? config.nightBackground : config.dayBackground)
   }
 
   darkModeQuery.addEventListener('change', applyBackgroundColor)
+
+  async function pollSunPhase () {
+    try {
+      const { phase } = await fetchJSON(`${API}/sun-phase`)
+      sunPhase = phase
+      themeSourceStatus.hidden = phase !== null
+      applyBackgroundColor()
+    } catch (err) {
+      if (err instanceof AuthRequiredError) return redirectToLogin()
+      console.error('signalk-launcher: sun-phase poll failed', err)
+    }
+  }
+
+  function startSunPolling () {
+    if (sunPollTimer !== null) return
+    pollSunPhase()
+    sunPollTimer = setInterval(pollSunPhase, SUN_POLL_INTERVAL_MS)
+  }
+
+  function stopSunPolling () {
+    clearInterval(sunPollTimer)
+    sunPollTimer = null
+    sunPhase = null
+    themeSourceStatus.hidden = true
+  }
 
   // Same live-apply-now, save-after-a-pause split as onIconSizeInput — some
   // browsers' native color pickers fire 'input' continuously while dragging
@@ -232,25 +277,48 @@
       .catch((err) => console.error('signalk-launcher: save failed', err))
   }
 
-  function handleDragStart (e, tile) {
-    dragged = tile
-    tile.classList.add('dragging')
-    e.dataTransfer.effectAllowed = 'move'
-  }
+  // Reordering uses Pointer Events rather than the HTML5 Drag and Drop API
+  // (draggable/dragstart/dragover/drop): iOS/iPadOS Safari never fires drag
+  // events for touch input, only for a mouse, so the old implementation
+  // silently did nothing on an iPad. Pointer Events cover mouse, touch and
+  // pen uniformly and iPadOS Safari supports them.
+  let dragState = null
 
-  function handleDragOver (e, tile) {
+  function startDrag (e, tile) {
     e.preventDefault()
-    if (!dragged || dragged === tile) return
-    const rect = tile.getBoundingClientRect()
-    const before = (e.clientX - rect.left) < rect.width / 2
-    tile.parentNode.insertBefore(dragged, before ? tile : tile.nextSibling)
+    dragState = { tile, pointerId: e.pointerId }
+    tile.classList.add('dragging')
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    handle.addEventListener('pointermove', onDragMove)
+    handle.addEventListener('pointerup', onDragEnd)
+    handle.addEventListener('pointercancel', onDragEnd)
   }
 
-  function handleDrop () {
-    if (!dragged) return
-    dragged.classList.remove('dragging')
+  function onDragMove (e) {
+    if (!dragState || e.pointerId !== dragState.pointerId) return
+    // elementFromPoint ignores pointer capture, so this sees whatever tile
+    // is actually under the finger/cursor right now regardless of which
+    // element captured the pointer.
+    const target = document.elementFromPoint(e.clientX, e.clientY)
+    const overTile = target && target.closest('.tile')
+    if (!overTile || overTile === dragState.tile || !grid.contains(overTile)) return
+    const rect = overTile.getBoundingClientRect()
+    const before = (e.clientX - rect.left) < rect.width / 2
+    grid.insertBefore(dragState.tile, before ? overTile : overTile.nextSibling)
+  }
+
+  function onDragEnd (e) {
+    if (!dragState || e.pointerId !== dragState.pointerId) return
+    const { tile } = dragState
+    tile.classList.remove('dragging')
+    const handle = e.currentTarget
+    handle.removeEventListener('pointermove', onDragMove)
+    handle.removeEventListener('pointerup', onDragEnd)
+    handle.removeEventListener('pointercancel', onDragEnd)
+    try { handle.releasePointerCapture(e.pointerId) } catch (err) { /* already released */ }
+    dragState = null
     const order = [...grid.children].map((el) => el.dataset.name)
-    dragged = null
     saveConfig({ order }).catch((err) => console.error('signalk-launcher: save failed', err))
   }
 
@@ -289,10 +357,13 @@
       }
 
       if (editMode) {
-        tile.draggable = true
-        tile.addEventListener('dragstart', (e) => handleDragStart(e, tile))
-        tile.addEventListener('dragover', (e) => handleDragOver(e, tile))
-        tile.addEventListener('drop', handleDrop)
+        // Grab anywhere on the tile except the label (needs its own tap to
+        // focus for renaming) and the Hide/Show button (needs its own tap
+        // to fire its click).
+        tile.addEventListener('pointerdown', (e) => {
+          if (e.target === labelEl || e.target.closest('.hide-toggle')) return
+          startDrag(e, tile)
+        })
 
         labelEl.contentEditable = 'true'
         labelEl.addEventListener('click', (e) => e.stopPropagation())
@@ -324,9 +395,11 @@
     editMode = !editMode
     editToggle.textContent = editMode ? 'Done' : 'Edit'
     editToggle.classList.toggle('active', editMode)
+    showDescriptionsControl.hidden = !editMode
     iconSizeControl.hidden = !editMode
     dayBgControl.hidden = !editMode
     nightBgControl.hidden = !editMode
+    themeSourceControl.hidden = !editMode
     render()
   })
 
@@ -341,6 +414,15 @@
 
   dayBgColor.addEventListener('input', () => onBackgroundColorInput('day', dayBgColor.value))
   nightBgColor.addEventListener('input', () => onBackgroundColorInput('night', nightBgColor.value))
+
+  themeSourceSelect.addEventListener('change', () => {
+    const value = themeSourceSelect.value
+    config.themeSource = value
+    if (value === 'signalk') startSunPolling()
+    else stopSunPolling()
+    applyBackgroundColor()
+    saveConfig({ themeSource: value }).catch((err) => console.error('signalk-launcher: save failed', err))
+  })
 
   load().catch((err) => {
     console.error('signalk-launcher: failed to load', err)

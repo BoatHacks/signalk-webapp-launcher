@@ -55,7 +55,8 @@ h1 {
 }
 
 .icon-size,
-.bg-color {
+.bg-color,
+.theme-source {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -89,6 +90,20 @@ h1 {
   border: 1px solid var(--tile-border);
   border-radius: 0.4rem;
   background: var(--tile-bg);
+}
+
+.theme-source select {
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--tile-border);
+  background: var(--tile-bg);
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+
+.theme-source-status {
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 button {
@@ -131,6 +146,14 @@ button.active {
 .grid.edit-mode .tile {
   cursor: grab;
   border: 1px dashed var(--tile-border);
+  /* Without this, iOS Safari treats a press-and-drag anywhere on the tile
+     as a page scroll/pan gesture instead of routing it to our pointer
+     handlers — the actual reason drag-to-reorder never worked on iPad.
+     Scrolling in edit mode still works by touching the gaps between tiles. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .tile.dragging {
@@ -179,6 +202,11 @@ button.active {
   border: 1px solid transparent;
   border-radius: 0.3rem;
   padding: 0.1rem 0.3rem;
+  /* Override the tile's user-select: none (needed for drag) so the
+     contentEditable label can still be selected/edited normally. */
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
 }
 
 .grid.edit-mode .label:focus {

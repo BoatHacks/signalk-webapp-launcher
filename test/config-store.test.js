@@ -19,7 +19,8 @@ test('starts with defaults', async () => {
     hideDescriptions: true,
     iconSize: 56,
     dayBackground: '#f4f5f7',
-    nightBackground: '#14161a'
+    nightBackground: '#14161a',
+    themeSource: 'system'
   })
 })
 
@@ -34,6 +35,7 @@ test('save merges a partial patch and persists it', async () => {
   await store.save({ hideDescriptions: false })
   await store.save({ iconSize: 80 })
   await store.save({ dayBackground: '#ffffff', nightBackground: '#000000' })
+  await store.save({ themeSource: 'signalk' })
 
   assert.deepEqual(store.get(), {
     order: ['b', 'a'],
@@ -42,7 +44,8 @@ test('save merges a partial patch and persists it', async () => {
     hideDescriptions: false,
     iconSize: 80,
     dayBackground: '#ffffff',
-    nightBackground: '#000000'
+    nightBackground: '#000000',
+    themeSource: 'signalk'
   })
 
   const reloaded = new ConfigStore(dir)
@@ -95,4 +98,15 @@ test('save rejects malformed color values, keeping the existing ones', async () 
 
   await store.save({ dayBackground: '#abc123; } * { display: none' })
   assert.equal(store.get().dayBackground, '#abc123', 'CSS-injection-shaped strings are rejected')
+})
+
+test('save rejects an unknown themeSource, keeping the existing one', async () => {
+  const store = new ConfigStore(tmpDir())
+  await store.init()
+
+  await store.save({ themeSource: 'signalk' })
+  assert.equal(store.get().themeSource, 'signalk')
+
+  await store.save({ themeSource: 'nonsense' })
+  assert.equal(store.get().themeSource, 'signalk')
 })

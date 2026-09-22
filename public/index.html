@@ -10,7 +10,7 @@
 <header>
   <h1>Launcher</h1>
   <div class="toolbar">
-    <label class="show-descriptions">
+    <label class="show-descriptions" id="show-descriptions-control" hidden>
       <input type="checkbox" id="show-descriptions">
       Show descriptions
     </label>
@@ -26,6 +26,14 @@
     <label class="bg-color" id="night-bg-control" hidden>
       Night background
       <input type="color" id="night-bg-color">
+    </label>
+    <label class="theme-source" id="theme-source-control" hidden>
+      Background follows
+      <select id="theme-source-select">
+        <option value="system">This device's setting</option>
+        <option value="signalk">Boat's sun data</option>
+      </select>
+      <span id="theme-source-status" class="theme-source-status" hidden>No sun data received yet</span>
     </label>
     <button id="edit-toggle" type="button">Edit</button>
   </div>
