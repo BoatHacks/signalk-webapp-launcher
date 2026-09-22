@@ -12,7 +12,13 @@ function tmpDir () {
 test('starts with defaults', async () => {
   const store = new ConfigStore(tmpDir())
   await store.init()
-  assert.deepEqual(store.get(), { order: [], renames: {}, hidden: [], hideDescriptions: true })
+  assert.deepEqual(store.get(), {
+    order: [],
+    renames: {},
+    hidden: [],
+    hideDescriptions: true,
+    iconSize: 56
+  })
 })
 
 test('save merges a partial patch and persists it', async () => {
@@ -24,12 +30,14 @@ test('save merges a partial patch and persists it', async () => {
   await store.save({ renames: { a: 'Alpha' } })
   await store.save({ hidden: ['c'] })
   await store.save({ hideDescriptions: false })
+  await store.save({ iconSize: 80 })
 
   assert.deepEqual(store.get(), {
     order: ['b', 'a'],
     renames: { a: 'Alpha' },
     hidden: ['c'],
-    hideDescriptions: false
+    hideDescriptions: false,
+    iconSize: 80
   })
 
   const reloaded = new ConfigStore(dir)
@@ -49,4 +57,21 @@ test('save de-duplicates hidden names and drops non-strings', async () => {
   await store.init()
   await store.save({ hidden: ['a', 'b', 'a', 42, null] })
   assert.deepEqual(store.get().hidden, ['a', 'b'])
+})
+
+test('save clamps iconSize to the allowed range and rounds it', async () => {
+  const store = new ConfigStore(tmpDir())
+  await store.init()
+
+  await store.save({ iconSize: 12 })
+  assert.equal(store.get().iconSize, 32)
+
+  await store.save({ iconSize: 999 })
+  assert.equal(store.get().iconSize, 160)
+
+  await store.save({ iconSize: 71.6 })
+  assert.equal(store.get().iconSize, 72)
+
+  await store.save({ iconSize: 'nope' })
+  assert.equal(store.get().iconSize, 72, 'non-numeric patch leaves the existing value alone')
 })

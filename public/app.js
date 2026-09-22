@@ -6,13 +6,17 @@
   const emptyState = document.getElementById('empty-state')
   const editToggle = document.getElementById('edit-toggle')
   const showDescriptions = document.getElementById('show-descriptions')
+  const iconSizeControl = document.getElementById('icon-size-control')
+  const iconSizeSlider = document.getElementById('icon-size-slider')
+  const iconSizeNumber = document.getElementById('icon-size-number')
   const header = document.querySelector('header')
   const loginRedirect = document.getElementById('login-redirect')
 
   let webapps = []
-  let config = { order: [], renames: {}, hidden: [], hideDescriptions: true }
+  let config = { order: [], renames: {}, hidden: [], hideDescriptions: true, iconSize: 56 }
   let editMode = false
   let dragged = null
+  let iconSizeSaveTimer = null
 
   // Thrown on a 401. Reads are registered server-side via router.access
   // ('readonly'), so with allow_readonly on they work with no session at
@@ -74,6 +78,9 @@
       webapps = apps
       config = cfg
       showDescriptions.checked = !config.hideDescriptions
+      applyIconSize(config.iconSize)
+      iconSizeSlider.value = config.iconSize
+      iconSizeNumber.value = config.iconSize
       render()
     } catch (err) {
       if (err instanceof AuthRequiredError) return redirectToLogin()
@@ -142,6 +149,26 @@
       renames[webapp.name] = value
     }
     saveConfig({ renames }).catch((err) => console.error('signalk-launcher: save failed', err))
+  }
+
+  function applyIconSize (px) {
+    document.documentElement.style.setProperty('--icon-size', `${px}px`)
+  }
+
+  // Applies immediately for live feedback while dragging/typing, but only
+  // persists after a short pause so a slider drag doesn't fire a save per
+  // pixel. The server clamps/rounds too (see lib/config-store.js); this
+  // just keeps the round-trip from spamming the plugin's data file.
+  function onIconSizeInput (rawValue) {
+    const value = Math.min(160, Math.max(32, Math.round(Number(rawValue) || config.iconSize)))
+    iconSizeSlider.value = value
+    iconSizeNumber.value = value
+    config.iconSize = value
+    applyIconSize(value)
+    clearTimeout(iconSizeSaveTimer)
+    iconSizeSaveTimer = setTimeout(() => {
+      saveConfig({ iconSize: value }).catch((err) => console.error('signalk-launcher: save failed', err))
+    }, 300)
   }
 
   function toggleHidden (webapp) {
@@ -246,6 +273,7 @@
     editMode = !editMode
     editToggle.textContent = editMode ? 'Done' : 'Edit'
     editToggle.classList.toggle('active', editMode)
+    iconSizeControl.hidden = !editMode
     render()
   })
 
@@ -254,6 +282,9 @@
       .then(() => render())
       .catch((err) => console.error('signalk-launcher: save failed', err))
   })
+
+  iconSizeSlider.addEventListener('input', () => onIconSizeInput(iconSizeSlider.value))
+  iconSizeNumber.addEventListener('input', () => onIconSizeInput(iconSizeNumber.value))
 
   load().catch((err) => {
     console.error('signalk-launcher: failed to load', err)

@@ -5,6 +5,7 @@
   --tile-border: #e0e2e6;
   --muted: #6b7280;
   --accent: #2563eb;
+  --icon-size: 56px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -53,6 +54,32 @@ h1 {
   color: var(--muted);
 }
 
+.icon-size {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* `display: flex` above has the same specificity as the browser's own
+   `[hidden] { display: none }` rule, and author CSS always wins over the
+   UA stylesheet — so without this, the `hidden` attribute set/cleared in
+   app.js would have no visible effect. */
+.icon-size[hidden] {
+  display: none;
+}
+
+.icon-size input[type="number"] {
+  width: 4.5rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--tile-border);
+  background: var(--tile-bg);
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+
 button {
   border: 1px solid var(--tile-border);
   background: var(--tile-bg);
@@ -70,7 +97,10 @@ button.active {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  /* Column width tracks --icon-size (plus room for the tile's own padding
+     and label text) so the icon-size slider actually changes how many
+     tiles fit per row, not just the icons' rendered size. */
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--icon-size) + 40px), 1fr));
   gap: 1rem;
   padding: 0.5rem 1.25rem 2rem;
 }
@@ -107,22 +137,22 @@ button.active {
 }
 
 .icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  border-radius: calc(var(--icon-size) * 0.25);
   object-fit: cover;
   background: var(--tile-bg);
   border: 1px solid var(--tile-border);
 }
 
 .icon-fallback {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  border-radius: calc(var(--icon-size) * 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: calc(var(--icon-size) * 0.35);
   font-weight: 600;
   color: #fff;
   background: var(--accent);
