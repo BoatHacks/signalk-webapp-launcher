@@ -1,6 +1,5 @@
 const path = require('path')
 const os = require('os')
-const express = require('express')
 const { ConfigStore } = require('./lib/config-store')
 const { scanWebappMetadata } = require('./lib/webapp-metadata')
 const { computeDayOrNight } = require('./lib/theme-source')
@@ -60,7 +59,10 @@ module.exports = function (app) {
   // to us here — we add routes onto it directly, we don't create our own.
   plugin.registerWithRouter = function (router) {
     router.use(requireAuth)
-    router.use(express.json({ limit: '256kb' }))
+    // No body-parser here: signalk-server already applies
+    // bodyParser.json({ limit: '10mb' }) globally before any plugin router
+    // runs (see index.js in the server package), so req.body on our PUT
+    // below is already parsed.
 
     const asyncHandler = (fn) => (req, res) => {
       Promise.resolve(fn(req, res)).catch((err) => {
