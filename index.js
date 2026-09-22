@@ -3,6 +3,7 @@ const os = require('os')
 const { ConfigStore } = require('./lib/config-store')
 const { scanWebappMetadata } = require('./lib/webapp-metadata')
 const { computeDayOrNight } = require('./lib/theme-source')
+const { getLandingPageStatus, setLandingPage } = require('./lib/landing-page')
 const { requireAuth } = require('./lib/auth')
 
 // SignalK's own config-dir default, per the Plugin API docs ("$SIGNALK_NODE_
@@ -31,6 +32,7 @@ module.exports = function (app) {
 
   let store
   let webappMetadata = {}
+  let configDir
 
   plugin.start = function () {
     const dataDir = app.getDataDirPath ? app.getDataDirPath() : './data'
@@ -39,10 +41,11 @@ module.exports = function (app) {
       app.error(`signalk-webapp-launcher: failed to initialize storage: ${err.message}`)
     })
 
+    configDir = getConfigDir(app, dataDir)
+
     // Installed webapps don't change without a server restart, so scanning
     // once here (synchronously — a directory listing plus a handful of
     // small package.json reads, negligible even on a Pi) is enough.
-    const configDir = getConfigDir(app, dataDir)
     try {
       webappMetadata = scanWebappMetadata(path.join(configDir, 'node_modules'))
     } catch (err) {
@@ -116,6 +119,25 @@ module.exports = function (app) {
       res.set('Cache-Control', 'no-store')
       res.json({ phase: computeDayOrNight(app) })
     })
+
+    // Whether this plugin's webapp is set as the server's landing page
+    // (settings.json's landingPage, read by the '/' redirect in
+    // serverroutes.js — no official write API exists for it, see
+    // lib/landing-page.js). Read/write the file directly rather than
+    // app.config.settings in memory: mutating that live object would
+    // repeat the app.webapps stale-reference trap (see getConfigDir
+    // above), and takes effect on the next request either way only after
+    // a restart, since the redirect handler reads the in-memory settings
+    // object built once at server startup, not the file, on every request.
+    readonly.get('/landing-page', asyncHandler(async (req, res) => {
+      const enabled = await getLandingPageStatus(configDir, plugin.id)
+      res.json({ enabled })
+    }))
+
+    readwrite.put('/landing-page', asyncHandler(async (req, res) => {
+      const enabled = await setLandingPage(configDir, plugin.id, Boolean(req.body && req.body.enabled))
+      res.json({ enabled })
+    }))
   }
 
   return plugin

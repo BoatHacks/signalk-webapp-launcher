@@ -46,7 +46,8 @@ h1 {
   gap: 1rem;
 }
 
-.show-descriptions {
+.show-descriptions,
+.landing-page {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -101,7 +102,8 @@ h1 {
   font-size: 0.9rem;
 }
 
-.theme-source-status {
+.theme-source-status,
+.landing-page-status {
   font-size: 0.8rem;
   font-style: italic;
 }

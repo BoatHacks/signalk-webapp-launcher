@@ -19,6 +19,9 @@
   const themeSourceControl = document.getElementById('theme-source-control')
   const themeSourceSelect = document.getElementById('theme-source-select')
   const themeSourceStatus = document.getElementById('theme-source-status')
+  const landingPageControl = document.getElementById('landing-page-control')
+  const landingPageCheckbox = document.getElementById('landing-page-checkbox')
+  const landingPageStatus = document.getElementById('landing-page-status')
   const header = document.querySelector('header')
   const loginRedirect = document.getElementById('login-redirect')
 
@@ -114,6 +117,18 @@
     } catch (err) {
       if (err instanceof AuthRequiredError) return redirectToLogin()
       throw err
+    }
+
+    // Separate from the launcher's own layout — this reads the server's
+    // core settings.json, not our plugin's config, so a failure here (a
+    // malformed settings file, for instance) shouldn't take down the rest
+    // of an otherwise-working launcher.
+    try {
+      const { enabled } = await fetchJSON(`${API}/landing-page`)
+      landingPageCheckbox.checked = enabled
+    } catch (err) {
+      if (err instanceof AuthRequiredError) return redirectToLogin()
+      console.error('signalk-webapp-launcher: failed to load landing-page status', err)
     }
   }
 
@@ -466,6 +481,7 @@
     dayBgControl.hidden = !editMode
     nightBgControl.hidden = !editMode
     themeSourceControl.hidden = !editMode
+    landingPageControl.hidden = !editMode
     render()
   })
 
@@ -488,6 +504,30 @@
     else stopSunPolling()
     applyBackgroundColor()
     saveConfig({ themeSource: value }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
+  })
+
+  // Writes the server's own settings.json (not this plugin's config — see
+  // index.js), so failures are handled separately from saveConfig/layout:
+  // on error, the checkbox reverts to what it actually is on disk rather
+  // than staying optimistically toggled.
+  landingPageCheckbox.addEventListener('change', async () => {
+    const desired = landingPageCheckbox.checked
+    landingPageCheckbox.disabled = true
+    try {
+      const { enabled } = await fetchJSON(`${API}/landing-page`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: desired })
+      })
+      landingPageCheckbox.checked = enabled
+      landingPageStatus.hidden = false
+    } catch (err) {
+      if (err instanceof AuthRequiredError) return redirectToLogin()
+      console.error('signalk-webapp-launcher: failed to update landing page', err)
+      landingPageCheckbox.checked = !desired
+    } finally {
+      landingPageCheckbox.disabled = false
+    }
   })
 
   load().catch((err) => {
