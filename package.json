@@ -1,0 +1,35 @@
+{
+  "name": "signalk-launcher",
+  "version": "0.1.0",
+  "description": "SignalK webapp launcher with reorderable, renameable app icons and optional description text",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-webapp",
+    "signalk-category-utility"
+  ],
+  "author": "Tobias Rosenstock",
+  "license": "MIT",
+  "signalk": {
+    "displayName": "Launcher",
+    "appIcon": "./assets/icon.svg"
+  },
+  "files": [
+    "index.js",
+    "lib/",
+    "public/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BoatHacks/signalk-launcher.git"
+  }
+}

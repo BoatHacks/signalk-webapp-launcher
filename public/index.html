@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Launcher</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Launcher</h1>
+  <div class="toolbar">
+    <label class="show-descriptions">
+      <input type="checkbox" id="show-descriptions">
+      Show descriptions
+    </label>
+    <button id="edit-toggle" type="button">Edit</button>
+  </div>
+</header>
+<main id="grid" class="grid"></main>
+<p id="empty-state" class="empty-state" hidden>No other webapps are installed on this server yet.</p>
+<p id="login-redirect" class="empty-state" hidden>Signing in…</p>
+<script src="app.js"></script>
+</body>
+</html>
