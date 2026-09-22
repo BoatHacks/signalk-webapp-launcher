@@ -144,8 +144,14 @@ button.active {
 }
 
 .grid.edit-mode .tile {
-  cursor: grab;
   border: 1px dashed var(--tile-border);
+}
+
+/* Drag-specific styling scoped to #grid only — #hidden-grid's tiles aren't
+   draggable (see app.js), so they shouldn't look grabbable or block touch
+   scrolling over the Hidden section. */
+#grid.edit-mode .tile {
+  cursor: grab;
   /* Without this, iOS Safari treats a press-and-drag anywhere on the tile
      as a page scroll/pan gesture instead of routing it to our pointer
      handlers — the actual reason drag-to-reorder never worked on iPad.
@@ -158,6 +164,17 @@ button.active {
 
 .tile.dragging {
   opacity: 0.4;
+}
+
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  z-index: 1000;
+  opacity: 0.6;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
 .tile-hidden {
@@ -229,5 +246,21 @@ button.active {
   text-align: center;
   color: var(--muted);
   margin-top: 3rem;
+}
+
+#hidden-section {
+  border-top: 1px solid var(--tile-border);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.hidden-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0;
+  padding: 0 1.25rem;
 }
 

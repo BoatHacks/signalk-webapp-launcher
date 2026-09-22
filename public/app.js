@@ -3,6 +3,8 @@
   const PLUGIN_NAME = 'signalk-webapp-launcher'
 
   const grid = document.getElementById('grid')
+  const hiddenSection = document.getElementById('hidden-section')
+  const hiddenGrid = document.getElementById('hidden-grid')
   const emptyState = document.getElementById('empty-state')
   const editToggle = document.getElementById('edit-toggle')
   const showDescriptionsControl = document.getElementById('show-descriptions-control')
@@ -283,11 +285,35 @@
   // silently did nothing on an iPad. Pointer Events cover mouse, touch and
   // pen uniformly and iPadOS Safari supports them.
   let dragState = null
+  let dragGhost = null
+
+  // A floating, semi-transparent copy of the icon that follows the
+  // pointer — without it, the only feedback during a drag was the
+  // original tile's own opacity dropping in place, which is easy to miss
+  // (your finger is covering it) and gives no sense of "something is being
+  // dragged" until it actually jumps to a new slot. pointer-events: none
+  // is required, not optional: without it the ghost itself would be the
+  // element document.elementFromPoint finds under the finger in
+  // onDragMove, and drop-target detection would break.
+  function createDragGhost (tile, e) {
+    const source = tile.querySelector('.icon, .icon-fallback') || tile
+    const ghost = source.cloneNode(true)
+    ghost.className = `${source.className} drag-ghost`
+    positionDragGhost(ghost, e)
+    document.body.appendChild(ghost)
+    return ghost
+  }
+
+  function positionDragGhost (ghost, e) {
+    ghost.style.left = `${e.clientX}px`
+    ghost.style.top = `${e.clientY}px`
+  }
 
   function startDrag (e, tile) {
     e.preventDefault()
     dragState = { tile, pointerId: e.pointerId }
     tile.classList.add('dragging')
+    dragGhost = createDragGhost(tile, e)
     const handle = e.currentTarget
     handle.setPointerCapture(e.pointerId)
     handle.addEventListener('pointermove', onDragMove)
@@ -297,9 +323,11 @@
 
   function onDragMove (e) {
     if (!dragState || e.pointerId !== dragState.pointerId) return
+    if (dragGhost) positionDragGhost(dragGhost, e)
     // elementFromPoint ignores pointer capture, so this sees whatever tile
     // is actually under the finger/cursor right now regardless of which
-    // element captured the pointer.
+    // element captured the pointer. (The ghost is pointer-events: none, so
+    // it's never what's returned here even though it's visually on top.)
     const target = document.elementFromPoint(e.clientX, e.clientY)
     const overTile = target && target.closest('.tile')
     if (!overTile || overTile === dragState.tile || !grid.contains(overTile)) return
@@ -312,51 +340,58 @@
     if (!dragState || e.pointerId !== dragState.pointerId) return
     const { tile } = dragState
     tile.classList.remove('dragging')
+    if (dragGhost) {
+      dragGhost.remove()
+      dragGhost = null
+    }
     const handle = e.currentTarget
     handle.removeEventListener('pointermove', onDragMove)
     handle.removeEventListener('pointerup', onDragEnd)
     handle.removeEventListener('pointercancel', onDragEnd)
     try { handle.releasePointerCapture(e.pointerId) } catch (err) { /* already released */ }
     dragState = null
-    const order = [...grid.children].map((el) => el.dataset.name)
-    saveConfig({ order }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
+    // #grid only ever holds visible tiles now (see render()), so rebuild
+    // the full order by appending hidden apps back in whatever relative
+    // order they already had — dragging the active tiles never touches
+    // where hidden ones sit, it only matters again once they're unhidden.
+    const hiddenSet = new Set(config.hidden)
+    const visibleOrder = [...grid.children].map((el) => el.dataset.name)
+    const hiddenOrder = orderedWebapps().filter((w) => hiddenSet.has(w.name)).map((w) => w.name)
+    saveConfig({ order: [...visibleOrder, ...hiddenOrder] })
+      .catch((err) => console.error('signalk-webapp-launcher: save failed', err))
   }
 
-  function render () {
-    const hiddenSet = new Set(config.hidden)
-    // Outside edit mode, hidden apps are simply left off the launch screen.
-    // In edit mode they're shown dimmed with an unhide button, so hiding is
-    // discoverable and reversible instead of apps just disappearing forever.
-    const list = orderedWebapps().filter((w) => editMode || !hiddenSet.has(w.name))
-    grid.innerHTML = ''
-    emptyState.hidden = list.length > 0
-    grid.classList.toggle('edit-mode', editMode)
+  /**
+   * Builds one tile. `draggable` is only true for the active grid — the
+   * Hidden section's tiles don't reorder (see onDragEnd), so they skip the
+   * pointerdown listener entirely rather than looking grabbable and doing
+   * nothing.
+   */
+  function buildTile (webapp, { editMode, isHidden, draggable }) {
+    const label = config.renames[webapp.name] || webapp.label
+    const tile = document.createElement(editMode ? 'div' : 'a')
+    tile.className = 'tile'
+    tile.dataset.name = webapp.name
+    if (!editMode) tile.href = webapp.location
+    if (isHidden) tile.classList.add('tile-hidden')
 
-    for (const webapp of list) {
-      const isHidden = hiddenSet.has(webapp.name)
-      const label = config.renames[webapp.name] || webapp.label
-      const tile = document.createElement(editMode ? 'div' : 'a')
-      tile.className = 'tile'
-      tile.dataset.name = webapp.name
-      if (!editMode) tile.href = webapp.location
-      if (editMode && isHidden) tile.classList.add('tile-hidden')
+    tile.appendChild(makeIcon(webapp))
 
-      tile.appendChild(makeIcon(webapp))
+    const labelEl = document.createElement('div')
+    labelEl.className = 'label'
+    labelEl.textContent = label
+    tile.appendChild(labelEl)
 
-      const labelEl = document.createElement('div')
-      labelEl.className = 'label'
-      labelEl.textContent = label
-      tile.appendChild(labelEl)
+    if (webapp.description) {
+      const descEl = document.createElement('div')
+      descEl.className = 'description'
+      descEl.textContent = webapp.description
+      descEl.hidden = config.hideDescriptions
+      tile.appendChild(descEl)
+    }
 
-      if (webapp.description) {
-        const descEl = document.createElement('div')
-        descEl.className = 'description'
-        descEl.textContent = webapp.description
-        descEl.hidden = config.hideDescriptions
-        tile.appendChild(descEl)
-      }
-
-      if (editMode) {
+    if (editMode) {
+      if (draggable) {
         // Grab anywhere on the tile except the label (needs its own tap to
         // focus for renaming) and the Hide/Show button (needs its own tap
         // to fire its click).
@@ -364,30 +399,55 @@
           if (e.target === labelEl || e.target.closest('.hide-toggle')) return
           startDrag(e, tile)
         })
-
-        labelEl.contentEditable = 'true'
-        labelEl.addEventListener('click', (e) => e.stopPropagation())
-        labelEl.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            labelEl.blur()
-          }
-        })
-        labelEl.addEventListener('blur', () => commitRename(webapp, labelEl))
-
-        const hideButton = document.createElement('button')
-        hideButton.type = 'button'
-        hideButton.className = 'hide-toggle'
-        hideButton.textContent = isHidden ? 'Show' : 'Hide'
-        hideButton.addEventListener('click', (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          toggleHidden(webapp)
-        })
-        tile.appendChild(hideButton)
       }
 
-      grid.appendChild(tile)
+      labelEl.contentEditable = 'true'
+      labelEl.addEventListener('click', (e) => e.stopPropagation())
+      labelEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          labelEl.blur()
+        }
+      })
+      labelEl.addEventListener('blur', () => commitRename(webapp, labelEl))
+
+      const hideButton = document.createElement('button')
+      hideButton.type = 'button'
+      hideButton.className = 'hide-toggle'
+      hideButton.textContent = isHidden ? 'Show' : 'Hide'
+      hideButton.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        toggleHidden(webapp)
+      })
+      tile.appendChild(hideButton)
+    }
+
+    return tile
+  }
+
+  function render () {
+    const hiddenSet = new Set(config.hidden)
+    const ordered = orderedWebapps()
+    const visible = ordered.filter((w) => !hiddenSet.has(w.name))
+    const hiddenApps = ordered.filter((w) => hiddenSet.has(w.name))
+
+    grid.innerHTML = ''
+    emptyState.hidden = visible.length > 0
+    grid.classList.toggle('edit-mode', editMode)
+    for (const webapp of visible) {
+      grid.appendChild(buildTile(webapp, { editMode, isHidden: false, draggable: true }))
+    }
+
+    // Hidden apps get their own section below, so they never sit between
+    // active tiles while reordering — dragging in #grid only ever sees
+    // other visible tiles (see onDragMove/onDragEnd). Only shown in edit
+    // mode, and only when there's actually something in it.
+    hiddenSection.hidden = !editMode || hiddenApps.length === 0
+    hiddenGrid.innerHTML = ''
+    hiddenGrid.classList.toggle('edit-mode', editMode)
+    for (const webapp of hiddenApps) {
+      hiddenGrid.appendChild(buildTile(webapp, { editMode, isHidden: true, draggable: false }))
     }
   }
 
