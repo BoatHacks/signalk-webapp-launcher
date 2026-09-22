@@ -54,7 +54,8 @@ h1 {
   color: var(--muted);
 }
 
-.icon-size {
+.icon-size,
+.bg-color {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -65,8 +66,9 @@ h1 {
 /* `display: flex` above has the same specificity as the browser's own
    `[hidden] { display: none }` rule, and author CSS always wins over the
    UA stylesheet — so without this, the `hidden` attribute set/cleared in
-   app.js would have no visible effect. */
-.icon-size[hidden] {
+   app.js would have no visible effect. Covers every edit-mode-only toolbar
+   control, current and future, rather than one override per class. */
+.toolbar [hidden] {
   display: none;
 }
 
@@ -78,6 +80,15 @@ h1 {
   background: var(--tile-bg);
   color: var(--fg);
   font-size: 0.9rem;
+}
+
+.bg-color input[type="color"] {
+  width: 2.25rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--tile-border);
+  border-radius: 0.4rem;
+  background: var(--tile-bg);
 }
 
 button {

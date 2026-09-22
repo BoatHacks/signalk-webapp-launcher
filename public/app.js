@@ -9,14 +9,28 @@
   const iconSizeControl = document.getElementById('icon-size-control')
   const iconSizeSlider = document.getElementById('icon-size-slider')
   const iconSizeNumber = document.getElementById('icon-size-number')
+  const dayBgControl = document.getElementById('day-bg-control')
+  const dayBgColor = document.getElementById('day-bg-color')
+  const nightBgControl = document.getElementById('night-bg-control')
+  const nightBgColor = document.getElementById('night-bg-color')
   const header = document.querySelector('header')
   const loginRedirect = document.getElementById('login-redirect')
 
   let webapps = []
-  let config = { order: [], renames: {}, hidden: [], hideDescriptions: true, iconSize: 56 }
+  let config = {
+    order: [],
+    renames: {},
+    hidden: [],
+    hideDescriptions: true,
+    iconSize: 56,
+    dayBackground: '#f4f5f7',
+    nightBackground: '#14161a'
+  }
   let editMode = false
   let dragged = null
   let iconSizeSaveTimer = null
+  let dayBgSaveTimer = null
+  let nightBgSaveTimer = null
 
   // Thrown on a 401. Reads are registered server-side via router.access
   // ('readonly'), so with allow_readonly on they work with no session at
@@ -81,6 +95,9 @@
       applyIconSize(config.iconSize)
       iconSizeSlider.value = config.iconSize
       iconSizeNumber.value = config.iconSize
+      dayBgColor.value = config.dayBackground
+      nightBgColor.value = config.nightBackground
+      applyBackgroundColor()
       render()
     } catch (err) {
       if (err instanceof AuthRequiredError) return redirectToLogin()
@@ -153,6 +170,40 @@
 
   function applyIconSize (px) {
     document.documentElement.style.setProperty('--icon-size', `${px}px`)
+  }
+
+  // "Day"/"night" is read off the system's own light/dark setting rather
+  // than any SignalK sun/time data — matches the dark-mode split style.css
+  // already uses for every other color, just made user-configurable for
+  // this one instead of hardcoded. Setting the inline style always wins
+  // over the stylesheet's @media block, so no specificity fight like the
+  // one the [hidden] toolbar controls had.
+  const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+  function applyBackgroundColor () {
+    document.documentElement.style.setProperty(
+      '--bg',
+      darkModeQuery.matches ? config.nightBackground : config.dayBackground
+    )
+  }
+
+  darkModeQuery.addEventListener('change', applyBackgroundColor)
+
+  // Same live-apply-now, save-after-a-pause split as onIconSizeInput — some
+  // browsers' native color pickers fire 'input' continuously while dragging
+  // inside the swatch. Day and night each get their own timer so adjusting
+  // one right after the other can't cancel the other's pending save.
+  function onBackgroundColorInput (which, value) {
+    const field = which === 'day' ? 'dayBackground' : 'nightBackground'
+    config[field] = value
+    applyBackgroundColor()
+    if (which === 'day') clearTimeout(dayBgSaveTimer)
+    else clearTimeout(nightBgSaveTimer)
+    const timer = setTimeout(() => {
+      saveConfig({ [field]: value }).catch((err) => console.error('signalk-launcher: save failed', err))
+    }, 300)
+    if (which === 'day') dayBgSaveTimer = timer
+    else nightBgSaveTimer = timer
   }
 
   // Applies immediately for live feedback while dragging/typing, but only
@@ -274,6 +325,8 @@
     editToggle.textContent = editMode ? 'Done' : 'Edit'
     editToggle.classList.toggle('active', editMode)
     iconSizeControl.hidden = !editMode
+    dayBgControl.hidden = !editMode
+    nightBgControl.hidden = !editMode
     render()
   })
 
@@ -285,6 +338,9 @@
 
   iconSizeSlider.addEventListener('input', () => onIconSizeInput(iconSizeSlider.value))
   iconSizeNumber.addEventListener('input', () => onIconSizeInput(iconSizeNumber.value))
+
+  dayBgColor.addEventListener('input', () => onBackgroundColorInput('day', dayBgColor.value))
+  nightBgColor.addEventListener('input', () => onBackgroundColorInput('night', nightBgColor.value))
 
   load().catch((err) => {
     console.error('signalk-launcher: failed to load', err)

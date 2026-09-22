@@ -17,7 +17,9 @@ test('starts with defaults', async () => {
     renames: {},
     hidden: [],
     hideDescriptions: true,
-    iconSize: 56
+    iconSize: 56,
+    dayBackground: '#f4f5f7',
+    nightBackground: '#14161a'
   })
 })
 
@@ -31,13 +33,16 @@ test('save merges a partial patch and persists it', async () => {
   await store.save({ hidden: ['c'] })
   await store.save({ hideDescriptions: false })
   await store.save({ iconSize: 80 })
+  await store.save({ dayBackground: '#ffffff', nightBackground: '#000000' })
 
   assert.deepEqual(store.get(), {
     order: ['b', 'a'],
     renames: { a: 'Alpha' },
     hidden: ['c'],
     hideDescriptions: false,
-    iconSize: 80
+    iconSize: 80,
+    dayBackground: '#ffffff',
+    nightBackground: '#000000'
   })
 
   const reloaded = new ConfigStore(dir)
@@ -74,4 +79,20 @@ test('save clamps iconSize to the allowed range and rounds it', async () => {
 
   await store.save({ iconSize: 'nope' })
   assert.equal(store.get().iconSize, 72, 'non-numeric patch leaves the existing value alone')
+})
+
+test('save rejects malformed color values, keeping the existing ones', async () => {
+  const store = new ConfigStore(tmpDir())
+  await store.init()
+
+  await store.save({ dayBackground: '#abc123', nightBackground: '#010203' })
+  assert.equal(store.get().dayBackground, '#abc123')
+  assert.equal(store.get().nightBackground, '#010203')
+
+  await store.save({ dayBackground: 'red', nightBackground: '#fff' })
+  assert.equal(store.get().dayBackground, '#abc123', 'named colors are rejected')
+  assert.equal(store.get().nightBackground, '#010203', 'short hex form is rejected')
+
+  await store.save({ dayBackground: '#abc123; } * { display: none' })
+  assert.equal(store.get().dayBackground, '#abc123', 'CSS-injection-shaped strings are rejected')
 })
