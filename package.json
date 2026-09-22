@@ -1,5 +1,5 @@
 {
-  "name": "signalk-launcher",
+  "name": "signalk-webapp-launcher",
   "version": "0.1.0",
   "description": "SignalK webapp launcher with reorderable, renameable app icons and optional description text",
   "main": "index.js",

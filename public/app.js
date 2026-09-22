@@ -1,6 +1,6 @@
 (function () {
-  const API = '/plugins/signalk-launcher'
-  const PLUGIN_NAME = 'signalk-launcher'
+  const API = '/plugins/signalk-webapp-launcher'
+  const PLUGIN_NAME = 'signalk-webapp-launcher'
 
   const grid = document.getElementById('grid')
   const emptyState = document.getElementById('empty-state')
@@ -175,7 +175,7 @@
     } else {
       renames[webapp.name] = value
     }
-    saveConfig({ renames }).catch((err) => console.error('signalk-launcher: save failed', err))
+    saveConfig({ renames }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
   }
 
   function applyIconSize (px) {
@@ -217,7 +217,7 @@
       applyBackgroundColor()
     } catch (err) {
       if (err instanceof AuthRequiredError) return redirectToLogin()
-      console.error('signalk-launcher: sun-phase poll failed', err)
+      console.error('signalk-webapp-launcher: sun-phase poll failed', err)
     }
   }
 
@@ -245,7 +245,7 @@
     if (which === 'day') clearTimeout(dayBgSaveTimer)
     else clearTimeout(nightBgSaveTimer)
     const timer = setTimeout(() => {
-      saveConfig({ [field]: value }).catch((err) => console.error('signalk-launcher: save failed', err))
+      saveConfig({ [field]: value }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
     }, 300)
     if (which === 'day') dayBgSaveTimer = timer
     else nightBgSaveTimer = timer
@@ -263,7 +263,7 @@
     applyIconSize(value)
     clearTimeout(iconSizeSaveTimer)
     iconSizeSaveTimer = setTimeout(() => {
-      saveConfig({ iconSize: value }).catch((err) => console.error('signalk-launcher: save failed', err))
+      saveConfig({ iconSize: value }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
     }, 300)
   }
 
@@ -274,7 +274,7 @@
     const hidden = [...hiddenSet]
     saveConfig({ hidden })
       .then(() => render())
-      .catch((err) => console.error('signalk-launcher: save failed', err))
+      .catch((err) => console.error('signalk-webapp-launcher: save failed', err))
   }
 
   // Reordering uses Pointer Events rather than the HTML5 Drag and Drop API
@@ -319,7 +319,7 @@
     try { handle.releasePointerCapture(e.pointerId) } catch (err) { /* already released */ }
     dragState = null
     const order = [...grid.children].map((el) => el.dataset.name)
-    saveConfig({ order }).catch((err) => console.error('signalk-launcher: save failed', err))
+    saveConfig({ order }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
   }
 
   function render () {
@@ -406,7 +406,7 @@
   showDescriptions.addEventListener('change', () => {
     saveConfig({ hideDescriptions: !showDescriptions.checked })
       .then(() => render())
-      .catch((err) => console.error('signalk-launcher: save failed', err))
+      .catch((err) => console.error('signalk-webapp-launcher: save failed', err))
   })
 
   iconSizeSlider.addEventListener('input', () => onIconSizeInput(iconSizeSlider.value))
@@ -421,11 +421,11 @@
     if (value === 'signalk') startSunPolling()
     else stopSunPolling()
     applyBackgroundColor()
-    saveConfig({ themeSource: value }).catch((err) => console.error('signalk-launcher: save failed', err))
+    saveConfig({ themeSource: value }).catch((err) => console.error('signalk-webapp-launcher: save failed', err))
   })
 
   load().catch((err) => {
-    console.error('signalk-launcher: failed to load', err)
+    console.error('signalk-webapp-launcher: failed to load', err)
     emptyState.hidden = false
     emptyState.textContent = 'Failed to load installed webapps.'
   })

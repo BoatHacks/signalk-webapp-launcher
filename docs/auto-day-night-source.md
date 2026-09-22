@@ -70,7 +70,7 @@ package, not before.
 New route, `readonly` like the rest of the launcher's GETs:
 
 ```
-GET /plugins/signalk-launcher/sun-phase → { phase: 'day' | 'night' | null }
+GET /plugins/signalk-webapp-launcher/sun-phase → { phase: 'day' | 'night' | null }
 ```
 
 `null` when neither `environment.sun` nor `environment.mode` has a
@@ -114,17 +114,3 @@ anything since restart) — see §5 for why this route doesn't look at
 - **Control widget**: a `<select>`, not radio buttons — see §5.
 - **Poll lifecycle**: starts/stops with the select's value, not a
   standalone toggle — see §5.
-
-- **How should "sun data unavailable" surface in edit mode?** Silently
-  doing nothing (per §5) is correct for the *displayed background*, but a
-  user who picks "boat's sun data" on a boat with no `signalk-derived-data`
-  (or equivalent) installed would see no feedback at all that their choice
-  is inert. Worth a small inline status note ("no sun data received yet")
-  next to the control — not designed here.
-- **Exact control widget** for the source picker — radio pair, a `<select>`,
-  or a single toggle switch. Whatever's used should sit visually next to
-  the day/night color swatches it governs, not elsewhere in the toolbar.
-- **Should the poll only run while `themeSource === 'signalk'`**, starting/
-  stopping as the user flips the control (yes, obviously — noted here so
-  the implementation doesn't leave an orphaned `setInterval` running after
-  switching back to `'system'`).

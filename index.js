@@ -21,7 +21,7 @@ function getConfigDir (app, dataDir) {
 module.exports = function (app) {
   const plugin = {}
 
-  plugin.id = 'signalk-launcher'
+  plugin.id = 'signalk-webapp-launcher'
   plugin.name = 'Launcher'
   plugin.description = 'Webapp launcher with reorderable, renameable icons and optional description text'
 
@@ -37,7 +37,7 @@ module.exports = function (app) {
     const dataDir = app.getDataDirPath ? app.getDataDirPath() : './data'
     store = new ConfigStore(dataDir)
     store.init().catch((err) => {
-      app.error(`signalk-launcher: failed to initialize storage: ${err.message}`)
+      app.error(`signalk-webapp-launcher: failed to initialize storage: ${err.message}`)
     })
 
     // Installed webapps don't change without a server restart, so scanning
@@ -47,7 +47,7 @@ module.exports = function (app) {
     try {
       webappMetadata = scanWebappMetadata(path.join(configDir, 'node_modules'))
     } catch (err) {
-      app.error(`signalk-launcher: failed to scan webapp metadata: ${err.message}`)
+      app.error(`signalk-webapp-launcher: failed to scan webapp metadata: ${err.message}`)
     }
   }
 
@@ -64,7 +64,7 @@ module.exports = function (app) {
 
     const asyncHandler = (fn) => (req, res) => {
       Promise.resolve(fn(req, res)).catch((err) => {
-        app.debug(`signalk-launcher error: ${err.message}`)
+        app.debug(`signalk-webapp-launcher error: ${err.message}`)
         res.status(400).json({ error: err.message })
       })
     }

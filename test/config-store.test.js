@@ -6,7 +6,7 @@ const path = require('path')
 const { ConfigStore } = require('../lib/config-store')
 
 function tmpDir () {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'signalk-launcher-'))
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'signalk-webapp-launcher-'))
 }
 
 test('starts with defaults', async () => {

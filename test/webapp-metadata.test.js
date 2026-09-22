@@ -11,7 +11,7 @@ function writePackage (dir, pkg) {
 }
 
 test('finds unscoped and scoped signalk-webapp packages, ignores others', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'signalk-launcher-scan-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'signalk-webapp-launcher-scan-'))
 
   writePackage(path.join(root, 'signalk-checklist'), {
     name: 'signalk-checklist',
